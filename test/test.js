@@ -1,7 +1,7 @@
 // note: this module specifier comes from the import-map
 //    in index.html; swap "src" for "dist" here to test
 //    against the dist/* files
-import TODO from "--TODO--/src";
+import Eventer from "eventer/src";
 
 
 // ***********************

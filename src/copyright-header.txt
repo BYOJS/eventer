@@ -1,4 +1,4 @@
-/*! --TODO--: #FILENAME#
-    v#VERSION# (c) #YEAR# --TODO--
+/*! Eventer: #FILENAME#
+    v#VERSION# (c) #YEAR# Kyle Simpson
     MIT License: http://mit-license.org
 */

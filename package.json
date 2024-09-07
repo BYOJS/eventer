@@ -1,12 +1,12 @@
 {
-	"name": "@byojs/--TODO--",
-	"description": "--TODO--",
-	"version": "0.0.0-TODO",
+	"name": "@byojs/eventer",
+	"description": "Basic event-emitter",
+	"version": "0.0.1",
 	"exports": {
-		"./": "./dist/--TODO--.mjs"
+		"./": "./dist/eventer.mjs"
 	},
 	"browser": {
-		"@byojs/--TODO--": "./dist/--TODO--.mjs"
+		"@byojs/eventer": "./dist/eventer.mjs"
 	},
 	"scripts": {
 		"build:all": "node scripts/build-all.js",
@@ -25,14 +25,19 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/byojs/--TODO--.git"
+		"url": "git+https://github.com/byojs/eventer.git"
 	},
-	"keywords": [],
+	"keywords": [
+		"events",
+		"emitter",
+		"async",
+		"pubsub"
+	],
 	"bugs": {
-		"url": "https://github.com/byojs/--TODO--/issues",
-		"email": "--TODO--"
+		"url": "https://github.com/byojs/eventer/issues",
+		"email": "getify@gmail.com"
 	},
-	"homepage": "https://github.com/byojs/--TODO--",
-	"author": "--TODO--",
+	"homepage": "https://github.com/byojs/eventer",
+	"author": "Kyle Simpson <getify@gmail.com>",
 	"license": "MIT"
 }
