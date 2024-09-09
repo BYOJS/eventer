@@ -124,48 +124,46 @@ function defineEventerClass() {
 		}
 
 		off(eventName,listener) {
-			var listenerRefs = (
-				// unsubscribe all listeners?
-				listener == null ?
-					// get all listener-weak-refs for event
-					// (or all of them, if no event specified)
-					this.#getListenerRefs(eventName) :
+			var listenerRecords = (
+				(
+					// unsubscribe all listeners?
+					listener == null ?
+						// get all listener-weak-refs for event
+						// (or all of them, if no event specified)
+						this.#getListenerRefs(eventName) :
 
-					// otherwise, unsubscribe specific listener
-					(
+						// otherwise, unsubscribe specific listener
 						(
-							// listener has been registered?
-							this.#listenerEntries.has(listener) &&
-
 							(
-								// unregistering all events?
-								eventName == null ||
+								// listener has been registered?
+								this.#listenerEntries.has(listener) &&
 
-								// or specific event registered?
-								this.#listenerEntries.get(listener)
-									.events.includes(eventName)
-							)
-						) ?
-							[ this.#listenerEntries.get(listener).ref ] :
+								(
+									// unregistering all events?
+									eventName == null ||
 
-							// nothing to do (no listener+event)
-							[]
-					)
+									// or specific event registered?
+									this.#listenerEntries.get(listener)
+										.events.includes(eventName)
+								)
+							) ?
+								[ this.#listenerEntries.get(listener).ref ] :
+
+								// nothing to do (no listener+event)
+								[]
+						)
+				)
+				.map(ref => [ ref.deref(), ref, ])
+				.filter(([ listenerFn, ]) => !!listenerFn)
+				.map(([ listenerFn, listenerRef, ]) => [
+					listenerFn,
+					listenerRef,
+					this.#listenerEntries.get(listenerFn),
+				])
 			);
 
 			// any listeners to unsubscribe?
-			if (listenerRefs.length > 0) {
-				let listenerRecords = (
-					listenerRefs
-						.map(ref => [ ref.deref(), ref, ])
-						.filter(([ listenerFn, ]) => !!listenerFn)
-						.map(([ listenerFn, listenerRef, ]) => [
-							listenerFn,
-							listenerRef,
-							this.#listenerEntries.get(listenerFn),
-						])
-				);
-
+			if (listenerRecords.length > 0) {
 				// process unsubscription(s)
 				for (let [ listenerFn, listenerRef, listenerEntry, ] of
 					listenerRecords
@@ -194,6 +192,7 @@ function defineEventerClass() {
 
 						for (let [ evt, refList, ] of
 							Object.entries(this.#listenerRefsByEvent)
+								.filter(([ evt, refList, ]) => refList != null)
 						) {
 							removeFromList(refList,listenerRef);
 
@@ -215,12 +214,13 @@ function defineEventerClass() {
 
 						// stop listening for GC
 						finalization.unregister(listenerRef);
-
 					}
 				}
+
+				return true;
 			}
 
-			return true;
+			return false;
 		}
 
 		emit(eventName,...args) {
@@ -247,31 +247,38 @@ function defineEventerClass() {
 							() => this.off(eventName,onceListener),
 						])
 				);
-				let triggerEvent = () => {
+				let triggerEvents = () => {
 					for (let listener of listeners) {
+						// was this listener a "once" listener?
+						if (onceEventUnsubscribers.has(listener)) {
+							// run the unsubscriber
+							onceEventUnsubscribers.get(listener)();
+							onceEventUnsubscribers.delete(listener);
+						}
+
 						try {
 							listener(...args);
 						}
 						catch (err) {
 							console.error(err);
 						}
-
-						// was this listener a "once" listener?
-						if (onceEventUnsubscribers.has(listener)) {
-							// run the unsubscriber
-							onceEventUnsubscribers.get(listener)();
-						}
 					}
-					listeners = onceEventUnsubscribers= triggerEvent = null;
+					listeners = onceEventUnsubscribers = triggerEvents = null;
 				};
 
 				// in async-emit mode?
 				if (this.#asyncEmit) {
 					// trigger event on next async microtask
-					Promise.resolve().then(triggerEvent);
+					Promise.resolve().then(triggerEvents);
+
+					// process unsubscribes immediately
+					for (let unsubscribe of onceEventUnsubscribers.values()) {
+						unsubscribe();
+					}
+					onceEventUnsubscribers.clear();
 				}
 				else {
-					triggerEvent();
+					triggerEvents();
 				}
 
 				return true;
@@ -286,7 +293,7 @@ function defineEventerClass() {
 					// flattened list of all registered
 					// listener-weak-refs
 					Object.values(this.#listenerRefsByEvent)
-					.flatMap(refs => refs)
+					.flatMap(refs => refs ?? [])
 				) :
 
 				// list of all event's listener-weak-refs (if any)

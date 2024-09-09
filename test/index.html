@@ -15,8 +15,24 @@
 <hr>
 
 <p>
-	<button type="button" id="run-tests-btn">run tests</button>
+	The automated tests run automatically, with results listed below.
 </p>
+<p>
+	The "weak listener" tests are designed to be run interactively (likely on a desktop computer); they require you to initiate a GC (garbage collection) between <em>part 1</em> and <em>part 2</em> of the tests.
+</p>
+<p>
+	<strong>To perform a manual GC in your browser:</strong>
+</p>
+<ul>
+	<li>In Chrome, you'll need to have browser developer tools open and access the Memory tab</li>
+	<li>In Firefox, you'll need to open <strong>about:memory</strong> in a separate tab</li>
+</ul>
+<p>
+	<button type="button" id="run-weak-tests-part-1-btn" disabled>run weak-listener tests (part 1)</button>
+	<button type="button" id="run-weak-tests-part-2-btn" disabled>run weak-listener tests (part 2)</button>
+</p>
+
+<div id="test-results"></div>
 
 </main>
 
