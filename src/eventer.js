@@ -4,11 +4,7 @@
 //     a13c3efc5d3b547e05731fa2af7e50348cf61173/README.md#iterable-listenerMaps
 
 var finalization = new FinalizationRegistry(
-	({ refs, ref, }) => (
-		console.log("removed",refs.length),
-		removeFromList(refs,ref),
-		console.log(refs.length)
-	)
+	({ refs, ref, }) => removeFromList(refs,ref)
 );
 var Eventer = defineEventerClass();
 
@@ -31,16 +27,15 @@ function defineEventerClass() {
 		#listenerSet;
 		#asyncEmit;
 
-	  	constructor({
-	  		weakListeners = true,
-	  		asyncEmit = false,
-	  	} = {}) {
-	  		if (!weakListeners) {
-	  			this.#listenerSet = new Set();
-	  		}
+		constructor({
+			weakListeners = true,
+			asyncEmit = false,
+		} = {}) {
+			this.#listenerSet = (!weakListeners ? new Set() : null);
 			this.#asyncEmit = asyncEmit;
 		}
 
+		// note: only usable in `weakListeners:false` mode
 		releaseListeners(listener) {
 			if (this.#listenerSet != null) {
 				if (listener != null) {
@@ -119,7 +114,8 @@ function defineEventerClass() {
 				// (weakly) remember that this is a "once"
 				// registration (to unregister after first
 				// `emit()`)
-				this.#listenerEntries.get(listener).onceEvents.push(eventName);
+				this.#listenerEntries.get(listener)
+					.onceEvents.push(eventName);
 
 				return true;
 			}
@@ -171,7 +167,9 @@ function defineEventerClass() {
 				);
 
 				// process unsubscription(s)
-				for (let [ listenerFn, listenerRef, listenerEntry, ] of listenerRecords) {
+				for (let [ listenerFn, listenerRef, listenerEntry, ] of
+					listenerRecords
+				) {
 					if (eventName != null) {
 						// unlink event from listener entry
 						removeFromList(listenerEntry.events,eventName);
@@ -194,11 +192,14 @@ function defineEventerClass() {
 						// to empty `onceEvents` list
 						listenerEntry.events.length = 0;
 
-						for (let [ evt, refList, ] of Object.entries(this.#listenerRefsByEvent)) {
+						for (let [ evt, refList, ] of
+							Object.entries(this.#listenerRefsByEvent)
+						) {
 							removeFromList(refList,listenerRef);
 
-							// all listener-weak-refs now unlinked from event?
-							if (refList.legnth == 0) {
+							// all listener-weak-refs now removed from
+							// this event?
+							if (refList.length == 0) {
 								this.#listenerRefsByEvent[evt] = null;
 							}
 						}
@@ -206,7 +207,7 @@ function defineEventerClass() {
 
 					// all events now unlinked from listener entry?
 					if (listenerEntry.events.length == 0) {
-						// release any GC-prevention of listener
+						// release any GC-protection of listener
 						this.releaseListeners(listenerFn);
 
 						// delete the whole entry
@@ -223,17 +224,29 @@ function defineEventerClass() {
 		}
 
 		emit(eventName,...args) {
-			console.log(this.#listenerRefsByEvent[eventName]);
-
 			var listeners = (
 				(this.#listenerRefsByEvent[eventName] || [])
 				.map(ref => ref.deref())
 				.filter(Boolean)
 			);
 			if (listeners.length > 0) {
-				let onceListeners = listeners.filter(listener => (
-					this.#listenerEntries.get(listener).onceEvents.includes(eventName)
-				));
+				let onceEventUnsubscribers = new Map(
+					listeners
+						// were any listeners of this event of the
+						// "once" type?
+						.filter(listener => (
+							// was this registered as a "once" listener?
+							this.#listenerEntries.get(listener)
+								.onceEvents.includes(eventName)
+						))
+
+						// produce list of entries ([key,value] tuples)
+						// to popuplate `onceEventUnsubscribers` Map
+						.map(onceListener => [
+							onceListener,
+							() => this.off(eventName,onceListener),
+						])
+				);
 				let triggerEvent = () => {
 					for (let listener of listeners) {
 						try {
@@ -243,12 +256,13 @@ function defineEventerClass() {
 							console.error(err);
 						}
 
-						// was this registered as a "once" listener?
-						if (onceListeners.includes(listener)) {
-							this.off(eventName,listener);
+						// was this listener a "once" listener?
+						if (onceEventUnsubscribers.has(listener)) {
+							// run the unsubscriber
+							onceEventUnsubscribers.get(listener)();
 						}
 					}
-					triggerEvent = listeners = onceListeners = null;
+					listeners = onceEventUnsubscribers= triggerEvent = null;
 				};
 
 				// in async-emit mode?
@@ -269,10 +283,13 @@ function defineEventerClass() {
 		#getListenerRefs(eventName) {
 			return (
 				eventName == null ? (
+					// flattened list of all registered
+					// listener-weak-refs
 					Object.values(this.#listenerRefsByEvent)
 					.flatMap(refs => refs)
 				) :
 
+				// list of all event's listener-weak-refs (if any)
 				(this.#listenerRefsByEvent[eventName] ?? [])
 			);
 		}
