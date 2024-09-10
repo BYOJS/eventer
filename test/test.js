@@ -58,15 +58,15 @@ async function runSyncTests() {
 		false,
 		true,
 		false,
-		"A: 0",
+		"A: 0 (true)",
 		"B: 0",
 		true,
-		"A: 1",
+		"A: 1 (true)",
 		true,
-		"A: 2",
+		"A: 2 (true)",
 		true,
 		false,
-		"A: 4",
+		"A: 4 (true)",
 		true,
 		true,
 		false,
@@ -93,7 +93,7 @@ async function runSyncTests() {
 		false,
 		false,
 		true,
-		"A: 16",
+		"A: 16 (true)",
 		true,
 		false,
 	];
@@ -166,7 +166,7 @@ async function runSyncTests() {
 	// ***********************
 
 	function A(msg) {
-		results.push(`A: ${msg}`);
+		results.push(`A: ${msg} (${this === events})`);
 	}
 
 	function B(msg) {

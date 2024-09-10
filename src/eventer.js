@@ -252,7 +252,7 @@ function defineEventerClass() {
 						}
 
 						try {
-							listener(...args);
+							listener.apply(this,args);
 						}
 						catch (err) {
 							console.error(err);

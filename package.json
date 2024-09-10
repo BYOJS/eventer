@@ -1,6 +1,6 @@
 {
 	"name": "@byojs/eventer",
-	"description": "Basic event-emitter",
+	"description": "Event emitter with async-emit and weak-listener support",
 	"version": "0.0.1",
 	"exports": {
 		"./": "./dist/eventer.mjs"
