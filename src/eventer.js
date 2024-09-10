@@ -37,22 +37,18 @@ function defineEventerClass() {
 
 		// note: only usable in `weakListeners:false` mode
 		releaseListeners(listener) {
-			if (this.#listenerSet != null) {
-				if (listener != null) {
-					this.#listenerSet.delete(listener);
-				}
-				else {
-					this.#listenerSet.clear();
-				}
+			if (listener != null) {
+				this.#listenerSet?.delete(listener);
+			}
+			else {
+				this.#listenerSet?.clear();
 			}
 		}
 
 		on(eventName,listener) {
 			// if not in "weak-listeners" mode, store a
 			// reference to prevent GC
-			if (this.#listenerSet != null) {
-				this.#listenerSet.add(listener);
-			}
+			this.#listenerSet?.add(listener);
 
 			// retrieve (weakly linked) listener entry (if any)
 			var listenerEntry = this.#listenerEntries.get(listener);
@@ -65,7 +61,7 @@ function defineEventerClass() {
 
 				// (strongly) link listener-weak-ref to event
 				this.#listenerRefsByEvent[eventName] = (
-					this.#listenerRefsByEvent[eventName] || []
+					this.#listenerRefsByEvent[eventName] ?? []
 				);
 				this.#listenerRefsByEvent[eventName].push(listenerRef);
 
@@ -99,7 +95,7 @@ function defineEventerClass() {
 
 				// (strongly) link listener-weak-ref to event
 				this.#listenerRefsByEvent[eventName] = (
-					this.#listenerRefsByEvent[eventName] || []
+					this.#listenerRefsByEvent[eventName] ?? []
 				);
 				this.#listenerRefsByEvent[eventName].push(listenerEntry.ref);
 
@@ -192,13 +188,12 @@ function defineEventerClass() {
 
 						for (let [ evt, refList, ] of
 							Object.entries(this.#listenerRefsByEvent)
-								.filter(([ evt, refList, ]) => refList != null)
 						) {
 							removeFromList(refList,listenerRef);
 
 							// all listener-weak-refs now removed from
 							// this event?
-							if (refList.length == 0) {
+							if (refList?.length == 0) {
 								this.#listenerRefsByEvent[evt] = null;
 							}
 						}
@@ -304,10 +299,8 @@ function defineEventerClass() {
 }
 
 function removeFromList(list,val) {
-	if (Array.isArray(list)) {
-		let idx = list.indexOf(val);
-		if (idx != -1) {
-			list.splice(idx,1);
-		}
+	var idx = list?.indexOf(val);
+	if (~(idx ?? -1)) {
+		list.splice(idx,1);
 	}
 }
