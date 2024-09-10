@@ -92,6 +92,10 @@ async function runSyncTests() {
 		false,
 		false,
 		false,
+		true,
+		"A: 16",
+		true,
+		false,
 	];
 
 	try {
@@ -99,6 +103,7 @@ async function runSyncTests() {
 		// outside the `try` block
 		var events = new Eventer({ asyncEmit: false, weakListeners: false, });
 		var counter = 0;
+		var symbolEvent = Symbol("symbol event");
 
 		results.push( events.on("test",A) );
 		results.push( events.on("test",A) );
@@ -139,6 +144,9 @@ async function runSyncTests() {
 		events.off();
 		results.push( events.emit("test",counter++) );
 		results.push( events.emit("test-2",counter++) );
+		results.push( events.once(symbolEvent,A) );
+		results.push( events.emit(symbolEvent,counter++) );
+		results.push( events.emit(symbolEvent,counter++) );
 
 		if (JSON.stringify(results) == JSON.stringify(expected)) {
 			testResultsEl.innerHTML += "(Sync Tests) PASSED.<br>";
