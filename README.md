@@ -6,12 +6,14 @@
 **Eventer** is a zero-dependency event emitter, with optional support for async `emit()`, and [weak event listeners](WEAK.md).
 
 ```js
-events.on("update",data => {
+const onUpdate = data => {
     console.log(`Data updated: ${data}`);
-});
-// Data updated: { hello: "world" }
+};
+
+events.on("update",onUpdate);
 
 events.emit("update",{ hello: "world" })
+// Data updated: { hello: "world" }
 ```
 
 ----
