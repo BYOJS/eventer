@@ -19,9 +19,12 @@ export default Eventer;
 
 // note: this function "hoists" the class
 // definition above the `export`s, for
-// desired file layout-order without TDZ
+// desired file layout-order without TDZ,
+// and also wraps it in a proxy to provide
+// both a `new` constructor form and a
+// regular factory function form
 function defineEventerClass() {
-	return class Eventer {
+	class Eventer {
 		#listenerEntries = new WeakMap();
 		#listenerRefsByEvent = {};
 		#listenerSet;
@@ -296,6 +299,29 @@ function defineEventerClass() {
 			);
 		}
 	};
+
+	// proxy to let `Eventer()` be both a constructor (via
+	// `new`) and a regular factory function
+	return new Proxy(Eventer,{
+		construct(target,args,receiver) {
+			return Reflect.construct(target,args,receiver);
+		},
+		apply(target,thisArg,args) {
+			return Reflect.construct(target,args);
+		},
+		getPrototypeOf(target) {
+			return Reflect.getPrototypeOf(target);
+		},
+		setPrototypeOf() {
+			return true;
+		},
+		get(target,prop,receiver) {
+			return Reflect.get(target,prop,receiver);
+		},
+		set(obj,prop,value) {
+			return Reflect.set(obj,prop,value);
+		},
+	});
 }
 
 function removeFromList(list,val) {
