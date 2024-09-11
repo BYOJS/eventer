@@ -20,15 +20,17 @@ else {
 // ***********************
 
 async function ready() {
+	var runAutomatedTestsBtn = document.getElementById("run-automated-tests-btn");
 	var runWeakTestsPart1Btn = document.getElementById("run-weak-tests-part-1-btn");
 	var runWeakTestsPart2Btn = document.getElementById("run-weak-tests-part-2-btn");
 	testResultsEl = document.getElementById("test-results");
 
+	runAutomatedTestsBtn.addEventListener("click",runAutomatedTests);
 	runWeakTestsPart1Btn.addEventListener("click",runWeakTestsPart1);
 	runWeakTestsPart2Btn.addEventListener("click",runWeakTestsPart2);
 
 	try {
-		await runAutoTests();
+		await runAutomatedTests();
 	}
 	catch (err) {
 		logError(err);
@@ -38,11 +40,12 @@ async function ready() {
 	runWeakTestsPart1Btn.disabled = false;
 }
 
-async function runAutoTests() {
+async function runAutomatedTests() {
 	testResultsEl.innerHTML = "Running automated tests...<br>";
 
 	for (let testFn of [ runSyncTests, runAsyncTests, ]) {
 		let result = await testFn();
+		testResultsEl.innerHTML += "<br>";
 		if (!result) {
 			return;
 		}
@@ -96,21 +99,46 @@ async function runSyncTests() {
 		"A: 16 (true)",
 		true,
 		false,
+		true,
+		"A2: 18 (true)",
+		true,
+		false,
+		"MyEventer.on",
+		true,
+		"MyEventer.customEmit",
+		"A3: 19 (true)",
+		true,
+		false,
 	];
+
+	class MyEventer extends Eventer {
+		on(...args) {
+			results.push("MyEventer.on");
+			return super.on(...args);
+		}
+		customEmit(...args) {
+			results.push("MyEventer.customEmit");
+			return this.emit(...args);
+		}
+	}
 
 	try {
 		// NOTE: `var`s intentional here, for hoisting
 		// outside the `try` block
 		var events = new Eventer({ asyncEmit: false, weakListeners: false, });
+		var events2 = Eventer({ asyncEmit: false, weakListeners: false, });
+		var events3 = new MyEventer({ asyncEmit: false, weakListeners: false, });
 		var counter = 0;
 		var symbolEvent = Symbol("symbol event");
+		var emitFn = events.emit;
+		var onFnBound = events.on.bind(events);
 
-		results.push( events.on("test",A) );
-		results.push( events.on("test",A) );
+		results.push( onFnBound("test",A) );
+		results.push( onFnBound("test",A) );
 		results.push( events.once("test",B) );
 		results.push( events.once("test",B) );
-		results.push( events.emit("test",counter++) );
-		results.push( events.emit("test",counter++) );
+		results.push( emitFn.call(events,"test",counter++) );
+		results.push( emitFn.call(events,"test",counter++) );
 		results.push( events.emit("test",counter++) );
 		results.push( events.emit("test-2",counter++) );
 		results.push( events.emit("test",counter++) );
@@ -147,18 +175,25 @@ async function runSyncTests() {
 		results.push( events.once(symbolEvent,A) );
 		results.push( events.emit(symbolEvent,counter++) );
 		results.push( events.emit(symbolEvent,counter++) );
+		results.push( events2.once("test",A2) );
+		results.push( events2.emit("test",counter++) );
+		results.push( events2.off("test",A2) );
+		results.push( events3.once("test",A3) );
+		results.push( events3.customEmit("test",counter++) );
+		results.push( events3.off("test",A3) );
 
 		if (JSON.stringify(results) == JSON.stringify(expected)) {
-			testResultsEl.innerHTML += "(Sync Tests) PASSED.<br>";
+			testResultsEl.innerHTML += "(Sync Tests) PASSED.";
 			return true;
 		}
 		else {
-			testResultsEl.innerHTML += `(Sync Tests) FAILED:<br>&nbsp;&nbsp;<strong>expected</strong> '${expected.join(",")}'<br>&nbsp;&nbsp;<strong>found</strong> '${results.join(",")}'<br>`;
+			testResultsEl.innerHTML += "(Sync Tests) FAILED.<br><br>";
+			reportExpectedActual(expected,results);
 		}
 	}
 	catch (err) {
 		logError(err);
-		testResultsEl.innerHTML += "(Sync Tests) FAILED -- see console<br>";
+		testResultsEl.innerHTML += "(Sync Tests) FAILED -- see console.";
 	}
 	return false;
 
@@ -167,6 +202,14 @@ async function runSyncTests() {
 
 	function A(msg) {
 		results.push(`A: ${msg} (${this === events})`);
+	}
+
+	function A2(msg) {
+		results.push(`A2: ${msg} (${this === events2})`);
+	}
+
+	function A3(msg) {
+		results.push(`A3: ${msg} (${this === events3})`);
 	}
 
 	function B(msg) {
@@ -273,16 +316,17 @@ async function runAsyncTests() {
 		results.push( events.off("test-2",D) );
 
 		if (JSON.stringify(results) == JSON.stringify(expected)) {
-			testResultsEl.innerHTML += "(Async Tests) PASSED.<br>";
+			testResultsEl.innerHTML += "(Async Tests) PASSED.";
 			return true;
 		}
 		else {
-			testResultsEl.innerHTML += `(Async Tests) FAILED:<br>&nbsp;&nbsp;<strong>expected</strong> '${expected.join(",")}'<br>&nbsp;&nbsp;<strong>found</strong> '${results.join(",")}'<br>`;
+			testResultsEl.innerHTML += "(Async Tests) FAILED.<br><br>";
+			reportExpectedActual(expected,results);
 		}
 	}
 	catch (err) {
 		logError(err);
-		testResultsEl.innerHTML += "(Async Tests) FAILED -- see console<br>";
+		testResultsEl.innerHTML += "(Async Tests) FAILED -- see console.";
 	}
 	return false;
 
@@ -389,17 +433,21 @@ async function runWeakTestsPart1() {
 			weakTests.events3 = null;
 			weakTests.listeners = null;
 
-			testResultsEl.innerHTML += "<br><strong>NOW: Please trigger a GC event in the browser</strong> before running the 'Part 2' tests.<br><small>(see instructions above for Chrome or Firefox browsers)<br><br>";
+			testResultsEl.innerHTML += "<br><strong>NOW: Please trigger a GC event in the browser</strong> before running the <em>part 2</em> tests.<br><small>(see instructions above for Chrome or Firefox browsers)<br><br>";
 
 			document.getElementById("run-weak-tests-part-2-btn").disabled = false;
+			return true;
 		}
 		else {
-			testResultsEl.innerHTML += `(Weak Tests Part 1) FAILED:<br>&nbsp;&nbsp;<strong>expected</strong> '${expected.join(",")}'<br>&nbsp;&nbsp;<strong>found</strong> '${results.join(",")}'<br>`;
+			testResultsEl.innerHTML += "(Weak Tests Part 1) FAILED.<br><br>";
+			reportExpectedActual(expected,weakTests.results);
+			weakTests = {};
 		}
 	}
 	catch (err) {
 		logError(err);
-		testResultsEl.innerHTML = "(Weak Tests Part 1) FAILED -- see console";
+		testResultsEl.innerHTML = "(Weak Tests Part 1) FAILED -- see console.";
+		weakTests = {};
 	}
 	return false;
 }
@@ -438,21 +486,45 @@ async function runWeakTestsPart2() {
 			return true;
 		}
 		else {
-			testResultsEl.innerHTML += `(Weak Tests Part 2) FAILED:<br>&nbsp;&nbsp;<strong>expected</strong> '${expected.join(",")}'<br>&nbsp;&nbsp;<strong>found</strong> '${weakTests.results.join(",")}'<br>`;
+			testResultsEl.innerHTML += "(Weak Tests Part 2) FAILED.<br><br>";
+			reportExpectedActual(expected,weakTests.results);
 		}
 	}
 	catch (err) {
 		logError(err);
-		testResultsEl.innerHTML = "(Weak Tests Part 2) FAILED -- see console";
+		testResultsEl.innerHTML = "(Weak Tests Part 2) FAILED -- see console.";
 	}
 	finally {
-		weakTests.events1 = weakTests.events2 = weakTests.results = null;
+		document.getElementById("run-weak-tests-part-2-btn").disabled = true;
+		weakTests = {};
 	}
 	return false;
 }
 
 function timeout(ms) {
 	return new Promise(res => setTimeout(res,ms));
+}
+
+function reportExpectedActual(expected,results) {
+	var expectedStr = expected.join();
+	var resultsStr = results.join();
+	var matchStr = findLeadingSimilarity(expectedStr,resultsStr);
+	if (matchStr != "") {
+		expectedStr = `<small><em>${matchStr}</em></small><strong>${expectedStr.slice(matchStr.length)}</strong>`;
+		resultsStr = `<small><em>${matchStr}</em></small><strong>${resultsStr.slice(matchStr.length)}</strong>`;
+	}
+	testResultsEl.innerHTML += `<strong style="text-decoration:underline;">EXPECTED</strong><pre style="white-space:pre-wrap;">${expectedStr}</pre><br><strong style="text-decoration:underline;">ACTUAL</strong><pre style="white-space:pre-wrap;">${resultsStr}</pre>`;
+}
+
+function findLeadingSimilarity(str1,str2) {
+	for (let i = 0; i < str1.length && i < str2.length; i++) {
+		if (str1[i] != str2[i]) {
+			return str1.substr(0,i);
+		}
+	}
+	return (
+		str1.length < str2.length ? str1 : str2
+	);
 }
 
 function logError(err,returnLog = false) {
