@@ -1,4 +1,4 @@
-/*! Eventer: #FILENAME#
+/*! byojs/Eventer: #FILENAME#
     v#VERSION# (c) #YEAR# Kyle Simpson
     MIT License: http://mit-license.org
 */

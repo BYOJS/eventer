@@ -1,7 +1,7 @@
 {
 	"name": "@byojs/eventer",
 	"description": "Event emitter with async-emit and weak-listener support",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"exports": {
 		"./": "./dist/eventer.mjs"
 	},
@@ -31,7 +31,9 @@
 		"events",
 		"emitter",
 		"async",
-		"pubsub"
+		"pubsub",
+		"weak references",
+		"memory"
 	],
 	"bugs": {
 		"url": "https://github.com/byojs/eventer/issues",
