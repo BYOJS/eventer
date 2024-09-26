@@ -22,14 +22,10 @@ else {
 async function ready() {
 	var runAutomatedTestsBtn = document.getElementById("run-automated-tests-btn");
 	var runWeakTestsPart1Btn = document.getElementById("run-weak-tests-part-1-btn");
-	var runWeakTestsPart2Btn = document.getElementById("run-weak-tests-part-2-btn");
-	var runWeakTestsPart3Btn = document.getElementById("run-weak-tests-part-3-btn");
 	testResultsEl = document.getElementById("test-results");
 
 	runAutomatedTestsBtn.addEventListener("click",runAutomatedTests);
 	runWeakTestsPart1Btn.addEventListener("click",runWeakTestsPart1);
-	runWeakTestsPart2Btn.addEventListener("click",runWeakTestsPart2);
-	runWeakTestsPart3Btn.addEventListener("click",runWeakTestsPart3);
 
 	try {
 		await runAutomatedTests();
@@ -43,6 +39,8 @@ async function ready() {
 }
 
 async function runAutomatedTests() {
+	cleanupWeakTestsButtons();
+
 	testResultsEl.innerHTML = "Running automated tests...<br>";
 
 	for (let testFn of [ runSyncTests, runAsyncTests, ]) {
@@ -119,7 +117,24 @@ async function runSyncTests() {
 		false,
 		true,
 		false,
-		false
+		false,
+		true,
+		true,
+		true,
+		"A: 23 (true)",
+		true,
+		"A: 24 (true)",
+		true,
+		"A: 25 (true)",
+		true,
+		false,
+		false,
+		"A: 28 (true)",
+		true,
+		false,
+		false,
+		false,
+		false,
 	];
 
 	class MyEventer extends Eventer {
@@ -145,8 +160,12 @@ async function runSyncTests() {
 		var onFnBound = events.on.bind(events);
 		var AC1 = new AbortController();
 		var AC2 = new AbortController();
+		var AC3 = new AbortController();
+		var AC4 = new AbortController();
 		var AS1 = AC1.signal;
 		var AS2 = AC2.signal;
+		var AS3 = AC3.signal;
+		var AS4 = AC4.signal;
 
 		results.push( onFnBound("test",A) );
 		results.push( onFnBound("test",A) );
@@ -196,6 +215,7 @@ async function runSyncTests() {
 		results.push( events3.once("test",A3) );
 		results.push( events3.customEmit("test",counter++) );
 		results.push( events3.off("test",A3) );
+
 		results.push( events.on("test",A,{ signal: AS1, }) );
 		results.push( events.emit("test",counter++) );
 		AC1.abort("unsubscribe-1");
@@ -206,6 +226,22 @@ async function runSyncTests() {
 		AC2.abort("unsubscribe-2");
 		results.push( events.emit("test",counter++) );
 		results.push( events.off("test",A) );
+
+		results.push( events.on("test-2",A,{ signal: AS3, }) );
+		results.push( events.on("test-3",A,{ signal: AS3, }) );
+		results.push( events.on("test-4",A,{ signal: AS4, }) );
+		results.push( events.emit("test-2",counter++) );
+		results.push( events.emit("test-3",counter++) );
+		results.push( events.emit("test-4",counter++) );
+		AC3.abort("unsubscribe-3");
+		results.push( events.emit("test-2",counter++) );
+		results.push( events.emit("test-3",counter++) );
+		results.push( events.emit("test-4",counter++) );
+		results.push( events.off("test-2",A) );
+		results.push( events.off("test-3",A) );
+		AC4.abort("unsubscribe-4");
+		results.push( events.emit("test-4",counter++) );
+		results.push( events.off("test-4",A) );
 
 		if (JSON.stringify(results) == JSON.stringify(expected)) {
 			testResultsEl.innerHTML += "(Sync Tests) PASSED.";
@@ -380,6 +416,8 @@ async function runAsyncTests() {
 }
 
 async function runWeakTestsPart1() {
+	cleanupWeakTestsButtons();
+
 	testResultsEl.innerHTML = "Running weak tests (part 1)...<br>";
 	var expected = [
 		"A: 0",
@@ -417,8 +455,10 @@ async function runWeakTestsPart1() {
 			weakTests.results.push(`E: ${msg}`);
 		},
 	};
-	var EController = new AbortController();
-	var ESignal = EController.signal;
+	var EController1 = new AbortController();
+	var ESignal1 = EController1.signal;
+	var EController2 = new AbortController();
+	var ESignal2 = EController2.signal;
 	weakTests.events1 = new Eventer({ asyncEmit: false, weakListeners: true, });
 	weakTests.events2 = new Eventer({ asyncEmit: false, weakListeners: false, });
 	weakTests.events3 = new Eventer({ asyncEmit: false, weakListeners: false, });
@@ -430,7 +470,8 @@ async function runWeakTestsPart1() {
 	weakTests.finalization.register(weakTests.listeners.C,"C");
 	weakTests.finalization.register(weakTests.listeners.D,"D");
 	weakTests.finalization.register(weakTests.events3,"events3");
-	weakTests.finalization.register(ESignal,"E.signal");
+	weakTests.finalization.register(ESignal1,"E.signal.1");
+	weakTests.finalization.register(ESignal2,"E.signal.2");
 
 	try {
 		var counter = 0;
@@ -450,7 +491,9 @@ async function runWeakTestsPart1() {
 		weakTests.events2.once("test-3",weakTests.listeners.B);
 		weakTests.events3.on("test",weakTests.listeners.D);
 
-		weakTests.events1.on("test-4",weakTests.listeners.E,{ signal: ESignal, });
+		weakTests.events1.on("test-4",weakTests.listeners.E,{ signal: ESignal1, });
+		weakTests.events1.on("test-5",weakTests.listeners.E,{ signal: ESignal1, });
+		weakTests.events1.on("test-6",weakTests.listeners.E,{ signal: ESignal2, });
 
 		weakTests.results.push( weakTests.events1.emit("test",counter++) );
 		weakTests.results.push( weakTests.events2.emit("test",counter++) );
@@ -466,12 +509,21 @@ async function runWeakTestsPart1() {
 			weakTests.events2.releaseListeners();
 			weakTests.events3 = null;
 			weakTests.listeners = null;
-			weakTests.EController = EController;
-			weakTests.ESignal = ESignal;
+			weakTests.EController1 = EController1;
+			weakTests.EController2 = EController2;
+			weakTests.ESignal1 = ESignal1;
+			weakTests.ESignal2 = ESignal2;
 
-			testResultsEl.innerHTML += "<br><strong>NEXT: Please trigger a GC event in the browser</strong> before running the <em>part 2</em> tests.<br><small>(see instructions above for Chrome or Firefox browsers)<br><br>";
+			testResultsEl.innerHTML += `
+				<br><strong>NEXT: Please trigger a GC event in the browser</strong> before running the <em>part 2</em> tests.
+				<br>
+				<small>(see instructions above for Chrome or Firefox browsers)</small>
+				<br>
+				<button type="button" id="run-weak-tests-part-2-btn">next (part 2) -&gt;</button>
+				<br><br>
+			`;
 
-			document.getElementById("run-weak-tests-part-2-btn").disabled = false;
+			document.getElementById("run-weak-tests-part-2-btn").addEventListener("click",runWeakTestsPart2);
 			return true;
 		}
 		else {
@@ -521,12 +573,21 @@ async function runWeakTestsPart2() {
 			testResultsEl.innerHTML += "(Weak Tests Part 2) PASSED.<br>";
 
 			weakTests.results.length = 0;
-			// allow GC of abort-controller/signal (for part 3)
-			weakTests.EController = weakTests.ESignal = null;
+			// allow GC of abort-controllers/signals (for part 3)
+			weakTests.EController1 = weakTests.ESignal1 =
+				weakTests.EController2 = weakTests.ESignal2 = null;
 
-			testResultsEl.innerHTML += "<br><strong>LASTLY: Please trigger *ONE MORE* GC event in the browser</strong> before running the <em>part 3</em> tests.<br><small>(see instructions above for Chrome or Firefox browsers)<br><br>";
 
-			document.getElementById("run-weak-tests-part-3-btn").disabled = false;
+			testResultsEl.innerHTML += `
+				<br><strong>LASTLY: Please trigger *ONE MORE* GC event in the browser</strong> before running the <em>part 3</em> tests.
+				<br>
+				<small>(see instructions above for Chrome or Firefox browsers)</small>
+				<br>
+				<button type="button" id="run-weak-tests-part-3-btn">next (part 3) -&gt;</button>
+				<br><br>
+			`;
+
+			document.getElementById("run-weak-tests-part-3-btn").addEventListener("click",runWeakTestsPart3);
 			return true;
 		}
 		else {
@@ -539,7 +600,7 @@ async function runWeakTestsPart2() {
 		testResultsEl.innerHTML = "(Weak Tests Part 2) FAILED -- see console.";
 	}
 	finally {
-		document.getElementById("run-weak-tests-part-2-btn").disabled = true;
+		cleanupWeakTestsButtons(true,false);
 	}
 	return false;
 }
@@ -547,7 +608,8 @@ async function runWeakTestsPart2() {
 async function runWeakTestsPart3() {
 	testResultsEl.innerHTML += "Running weak tests (part 3)...<br>";
 	var expected = [
-		"removed: E.signal",
+		"removed: E.signal.1",
+		"removed: E.signal.2",
 	];
 	weakTests.finalization = null;
 
@@ -573,11 +635,27 @@ async function runWeakTestsPart3() {
 		testResultsEl.innerHTML = "(Weak Tests Part 3) FAILED -- see console.";
 	}
 	finally {
-		document.getElementById("run-weak-tests-part-2-btn").disabled = true;
-		document.getElementById("run-weak-tests-part-3-btn").disabled = true;
+		cleanupWeakTestsButtons();
 		weakTests = {};
 	}
 	return false;
+}
+
+function cleanupWeakTestsButtons(part2 = true,part3 = true) {
+	if (part2) {
+		let btn1 = document.getElementById("run-weak-tests-part-2-btn");
+		if (btn1 != null) {
+			btn1.disabled = true;
+			btn1.removeEventListener("click",runWeakTestsPart2);
+		}
+	}
+	if (part3) {
+		let btn2 = document.getElementById("run-weak-tests-part-3-btn");
+		if (btn2 != null) {
+			btn2.disabled = true;
+			btn2.removeEventListener("click",runWeakTestsPart3);
+		}
+	}
 }
 
 function timeout(ms) {
