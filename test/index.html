@@ -18,10 +18,10 @@
 	The automated tests run automatically, with results listed below.
 </p>
 <p>
-	The "weak listener" tests are designed to be run interactively (likely on a desktop computer); they require you to initiate a GC (garbage collection) between <em>part 1</em> and <em>part 2</em> of the tests.
+	The "weak listener" tests are designed to be run interactively (likely on a desktop computer); they require you to initiate a GC (garbage collection) between <em>part 1</em> and <em>part 2</em>, as well as between <em>part 2</em> and <em>part 3</em>, of the tests.
 </p>
 <p>
-	<strong>NOTE:</strong> Because of the unpredictability of GC, it's <em>possible</em> the browser might automatically perform a GC event between running the <em>part 1</em> tests and <em>part 2</em> tests, <strong>even if you didn't do so.</strong> As such, if you don't trigger the GC explicitly, it's possible that the <em>part 2</em> tests pass sometimes, but don't pass other times. However, if you trigger the GC explicitly, the <em>part 2</em> tests should always pass.
+	<strong>NOTE:</strong> Because of the unpredictability of GC, it's <em>possible</em> the browser might automatically perform a GC event between running the <em>part 1</em> tests and <em>part 2</em> tests, <strong>even if you didn't do so.</strong> As such, if you don't trigger the GC explicitly, it's possible that the <em>part 2</em> or <em>part 2</em> tests pass sometimes, but don't pass other times. However, if you trigger the GC explicitly, the <em>part 2</em> and <em>part 3</em> tests should always pass.
 </p>
 <p>
 	<strong>To perform a manual GC in your browser:</strong>
@@ -37,6 +37,7 @@
 	<button type="button" id="run-automated-tests-btn">run automated tests</button>
 	<button type="button" id="run-weak-tests-part-1-btn" disabled>run weak-listener tests (part 1)</button>
 	<button type="button" id="run-weak-tests-part-2-btn" disabled>run weak-listener tests (part 2)</button>
+	<button type="button" id="run-weak-tests-part-3-btn" disabled>run weak-listener tests (part 3)</button>
 </p>
 
 <hr>

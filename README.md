@@ -235,7 +235,33 @@ function onPositionUpdate(x,y) {
 }
 
 myMap.on("position-update",onPositionUpdate);
+
+// elsewhere:
+myMap.emit("position-update",centerX,centerY);
 ```
+
+### `AbortSignal` unsubscription
+
+A recent welcomed change to the [native `addEventListener(..)` browser API](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener) is the ability to pass in an [`AbortSignal` instance](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal), from an [`AbortController` instance](https://developer.mozilla.org/en-US/docs/Web/API/AbortController); if the `"abort"` event is fired on the signal, [the event listener is unsubscribed](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#signal), instead of having to manually call [`removeEventListener(..)`](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/removeEventListener) to unsubscribe. This is helpful because you don't need keep around any reference to the listener function to unsubscribe it.
+
+**Eventer** also supports this functionality:
+
+```js
+function onWhatever() {
+    console.log("'whatever' event fired!");
+}
+
+var ac = new AbortController();
+
+// subscribe to "whatever" event, but set up
+// the abort-signal to unsubscribe
+events.on("whatever",onWhatever,{ signal: ac.signal });
+
+// later:
+ac.abort("Unsubscribe!");
+```
+
+**Note:** An `AbortSignal` instance is also held weakly by **Eventer**, so any GC of either the listener or the signal will drop the relationship between them as desired -- without one preventing GC of the other.
 
 ### Inline event listeners (functions)
 
@@ -352,7 +378,7 @@ function listenToWhatever() {
 listenToWhatever();
 ```
 
-After the call to `listenToWhatever()`, any `"whatever"` events fire may be handled or not, unpredictably, because the inner `=>` arrow function is now subject to GC cleanup at any point the JS engine feels like it!
+After the call to `listenToWhatever()`, any `"whatever"` events fired, may be handled or not, unpredictably, because the inner `=>` arrow function is now subject to GC cleanup at any point the JS engine feels like it!
 
 ### `once(..)` Method
 

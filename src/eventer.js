@@ -4,7 +4,23 @@
 //     a13c3efc5d3b547e05731fa2af7e50348cf61173/README.md#iterable-listenerMaps
 
 var finalization = new FinalizationRegistry(
-	({ refs, ref, }) => removeFromList(refs,ref)
+	({ refs, ref, signalRefs, }) => {
+		removeFromList(refs,ref);
+		if (signalRefs != null) {
+			for (
+				let { signalRef, onAbortSignalRef, } of
+					Object.values(signalRefs)
+			) {
+				// note: these may very well have already been
+				// GC'd, so there may be nothing to do here
+				let signal = signalRef.deref();
+				let onAbortSignal = onAbortSignalRef.deref();
+				if (signal != null && onAbortSignal != null) {
+					signal.removeEventListener("abort",onAbortSignal);
+				}
+			}
+		}
+	}
 );
 var Eventer = defineEventerClass();
 
@@ -48,7 +64,10 @@ function defineEventerClass() {
 			}
 		}
 
-		on(eventName,listener) {
+		on(eventName,listener,{ signal, } = {}) {
+			// already-aborted AbortSignal passed in?
+			if (signal != null && signal.aborted) return false;
+
 			// if not in "weak-listeners" mode, store a
 			// reference to prevent GC
 			this.#listenerSet?.add(listener);
@@ -78,6 +97,43 @@ function defineEventerClass() {
 				// (weakly) link listener to its entry
 				this.#listenerEntries.set(listener,listenerEntry);
 
+				// AbortSignal passed in?
+				if (signal != null) {
+					// weakly hold reference to signal, to
+					// remove its event listener later
+					let signalRef = new WeakRef(signal);
+
+					// handler for when signal is aborted
+					let onAbortSignal = () => {
+						// weak reference still points at a
+						// signal?
+						var theSignal = signalRef.deref();
+						var theHandler = onAbortSignalRef.deref();
+						if (theSignal != null && theHandler != null) {
+							theSignal.removeEventListener("abort",theHandler);
+						}
+
+						// weak reference still points at a
+						// listener?
+						var listener = listenerRef.deref();
+						if (listener != null) {
+							this.off(eventName,listener);
+						}
+					};
+					let onAbortSignalRef = new WeakRef(onAbortSignal);
+
+					signal.addEventListener("abort",onAbortSignal);
+
+					// save signal/handler weak references for later
+					// unsubscription, upon GC of listener
+					listenerEntry.signalRefs = {
+						[eventName]: {
+							signalRef,
+							onAbortSignalRef,
+						},
+					};
+				}
+
 				// listen for GC of listener, to unregister any
 				// event subscriptions (clean up memory)
 				finalization.register(
@@ -85,6 +141,7 @@ function defineEventerClass() {
 					{
 						refs: this.#listenerRefsByEvent[eventName],
 						ref: listenerRef,
+						signalRefs: listenerEntry.signalRefs,
 					},
 					listenerRef
 				);
@@ -93,6 +150,8 @@ function defineEventerClass() {
 			}
 			// listener entry does NOT have this event registered?
 			else if (!listenerEntry.events.includes(eventName)) {
+				let listenerRef = listenerEntry.ref;
+
 				// register event on listener entry
 				listenerEntry.events.push(eventName);
 
@@ -100,7 +159,43 @@ function defineEventerClass() {
 				this.#listenerRefsByEvent[eventName] = (
 					this.#listenerRefsByEvent[eventName] ?? []
 				);
-				this.#listenerRefsByEvent[eventName].push(listenerEntry.ref);
+				this.#listenerRefsByEvent[eventName].push(listenerRef);
+
+				// AbortSignal passed in?
+				if (signal != null) {
+					// weakly hold reference to signal, to
+					// remove its event listener later
+					let signalRef = new WeakRef(signal);
+
+					// handler for when signal is aborted
+					let onAbortSignal = () => {
+						// weak reference still points at a
+						// signal?
+						var theSignal = signalRef.deref();
+						var theHandler = onAbortSignalRef.deref();
+						if (theSignal != null && theHandler != null) {
+							theSignal.removeEventListener("abort",theHandler);
+						}
+
+						// weak reference still points at a
+						// listener?
+						var listener = listenerRef.deref();
+						if (listener != null) {
+							this.off(eventName,listener);
+						}
+					};
+					let onAbortSignalRef = new WeakRef(onAbortSignal);
+
+					signal.addEventListener("abort",onAbortSignal);
+
+					// save signal/handler weak references for later
+					// unsubscription, upon GC of listener
+					listenerEntry.signalRefs = listenerEntry.signalRefs ?? {};
+					listenerEntry.signalRefs[eventName] = {
+						signalRef,
+						onAbortSignalRef,
+					};
+				}
 
 				return true;
 			}
@@ -108,8 +203,8 @@ function defineEventerClass() {
 			return false;
 		}
 
-		once(eventName,listener) {
-			if (this.on(eventName,listener)) {
+		once(eventName,listener,opts) {
+			if (this.on(eventName,listener,opts)) {
 				// (weakly) remember that this is a "once"
 				// registration (to unregister after first
 				// `emit()`)
@@ -182,6 +277,16 @@ function defineEventerClass() {
 						if (this.#listenerRefsByEvent[eventName].length == 0) {
 							this.#listenerRefsByEvent[eventName] = null;
 						}
+
+						// abort signal (for event) to clean up?
+						if (listenerEntry.signalRefs?.[eventName] != null) {
+							let signal = listenerEntry.signalRefs[eventName].signalRef.deref();
+							let onAbortSignal = listenerEntry.signalRefs[eventName].onAbortSignalRef.deref();
+							if (signal != null && onAbortSignal != null) {
+								signal.removeEventListener("abort",onAbortSignal);
+							}
+							delete listenerEntry.signalRefs[eventName];
+						}
 					}
 					else {
 						// note: will trigger (below) deleting the
@@ -199,6 +304,21 @@ function defineEventerClass() {
 							if (refList?.length == 0) {
 								this.#listenerRefsByEvent[evt] = null;
 							}
+						}
+
+						// abort signal(s) to cleanup?
+						if (listenerEntry.signalRefs != null) {
+							for (
+								let { signalRef, onAbortSignalRef, } of
+									Object.values(listenerEntry.signalRefs)
+							) {
+								let signal = signalRef.deref();
+								let onAbortSignal = onAbortSignalRef.deref();
+								if (signal != null && onAbortSignal != null) {
+									signal.removeEventListener("abort",onAbortSignal);
+								}
+							}
+							delete listenerEntry.signalRefs;
 						}
 					}
 
