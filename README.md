@@ -24,7 +24,7 @@ events.emit("update",{ hello: "world" })
 
 ## Overview
 
-The main purpose of **Eventer** is to provide a basic event emitter that supports two specific helpful features that most event emitters do not have:
+The main purpose of **Eventer** is to provide a basic event emitter that supports two specific helpful features that most event emitters (in JS land) do not have:
 
 1. async `emit()`: asynchronous event handling sometimes makes it easier to work around difficult issues with event handling.
 
@@ -217,7 +217,7 @@ var specialEvent = Symbol("special event");
 events.on(specialEvent,onSpecialEvent);
 ```
 
-Event listener functions are invoked with `this`-context of the emitter instance, *if possible*; `=>` arrow functions never have `this` binding, and already `this`-hard-bound (via `.bind(..)`) functions cannot be `this`-overridden.
+Event listener functions are invoked with `this`-context of the emitter instance, *if possible*; `=>` arrow functions never have `this` binding, and already `this`-hard-bound (via `.bind(..)`) functions cannot be `this`-overridden -- and `class` constructors require `new` invocation!
 
 Event subscriptions must be unique, meaning the event+listener combination must not have already been subscribed. This makes **Eventer** safer, preventing duplicate event subscriptions -- a common bug in event-oriented program design.
 
@@ -242,7 +242,7 @@ myMap.emit("position-update",centerX,centerY);
 
 ### `AbortSignal` unsubscription
 
-A recent welcomed change to the [native `addEventListener(..)` browser API](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener) is the ability to pass in an [`AbortSignal` instance](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal), from an [`AbortController` instance](https://developer.mozilla.org/en-US/docs/Web/API/AbortController); if the `"abort"` event is fired on the signal, [the event listener is unsubscribed](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#signal), instead of having to manually call [`removeEventListener(..)`](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/removeEventListener) to unsubscribe. This is helpful because you don't need keep around any reference to the listener function to unsubscribe it.
+A recent welcomed change to the [native `addEventListener(..)` browser API](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener) is the ability to pass in an [`AbortSignal` instance](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal) (from an [`AbortController` instance](https://developer.mozilla.org/en-US/docs/Web/API/AbortController)); if the `"abort"` event is fired, [the associated event listener is unsubscribed](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#signal), instead of having to manually call [`removeEventListener(..)`](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/removeEventListener) to unsubscribe. This is helpful because you don't need keep around any reference to the listener function to unsubscribe it.
 
 **Eventer** also supports this functionality:
 
@@ -261,7 +261,7 @@ events.on("whatever",onWhatever,{ signal: ac.signal });
 ac.abort("Unsubscribe!");
 ```
 
-**Note:** An `AbortSignal` instance is also held weakly by **Eventer**, so any GC of either the listener or the signal will drop the relationship between them as desired -- without one preventing GC of the other.
+**Note:** An `AbortSignal` instance is also held weakly by **Eventer**, so any GC of either the listener or the signal will drop the relationship between them as desired -- without preventing GC of each other.
 
 ### Inline event listeners (functions)
 
@@ -269,7 +269,7 @@ It's very common in modern JS programming, and especially with event handling co
 
 #### NOT inline event listeners
 
-But before we explain those gotchas, let's highlight the preferred alternative to inline functions (as already implied in previous snippets!):
+Before we explain those gotchas, let's highlight the preferred alternatives to inline functions (as already implied in previous snippets!):
 
 ```js
 function onWhatever() {
@@ -351,13 +351,13 @@ events.on(
 events.off("whatever", /* OOPS, what do I pass here!? */)
 ```
 
-**Note:** This unsubscription concern is not *fatal*, though. There are [other ways to use `off(..)` unsubscription](#alternate-unsubscription) that avoid this issue.
+**Note:** This unsubscription concern is not *unworkable*, though. There are [other ways to use `off(..)` unsubscription](#alternate-unsubscription) that avoid this issue, or you can [use an `AbortSignal` to unsubscribe](#abortsignal-unsubscription).
 
 #### Accidental unsubscription
 
 The most pressing concern with inline event listeners arises when using the [*weak event listeners* mode](WEAK.md). Since this is the *default* mode of **Eventer**, it's of particular importance to be aware of this *very likely* gotcha.
 
-Since there is *by definition* no other reference to an inline function reference other than the one passed into `on(..)` / `once(..)`, once the lexical scope (i.e., surrounding function, etc) of the subscription has finished, and its contents are now subject to GC cleanup, the **listener function itself** will likely be GC removed.
+Since there is almost certainly no other reference to an inline function reference other than the one passed into `on(..)` / `once(..)`, once the lexical scope (i.e., surrounding function, etc) of the subscription has finished, and its contents are now subject to GC cleanup, the **listener function itself** will likely be GC removed.
 
 By design, **Eventer**'s [*weak event listeners* mode](WEAK.md) ensures event subscriptions are discarded if the listener itself is GC'd. This helps prevent accidental memory leaks when forgetting to unsubscribe events that are no longer relevant.
 
@@ -379,6 +379,8 @@ listenToWhatever();
 ```
 
 After the call to `listenToWhatever()`, any `"whatever"` events fired, may be handled or not, unpredictably, because the inner `=>` arrow function is now subject to GC cleanup at any point the JS engine feels like it!
+
+Hopefully it's clear that you should avoid inline function listeners, at least when using the *weak event listeners* mode of **Eventer**.
 
 ### `once(..)` Method
 
@@ -528,7 +530,7 @@ In other words, it's a way to opt-in to [*weak event listeners* mode](WEAK.md), 
 
 This differs from calling `off(null,onWhatever)` / `off()` in that `releaseListeners()` *does not* affirmatively unsubscribe the events (as `off(..)` does), but merely *allow* future implicit unsubscription.
 
-**Note:** If you're in the circumstance where all listener(s) have already gone out of scope, and you might be tempted to call `releaseListeners()` (no arguments) to allow the GC, this circumstance is better suited to call `off()` (no arguments) instead.
+**Note:** If you're in the circumstance where all listener(s) have already gone out of scope, and you might be tempted to call `releaseListeners()` (no arguments) to allow the GC, this circumstance is better suited to use `off()` (no arguments) instead.
 
 ## Re-building `dist/*`
 
