@@ -1,7 +1,7 @@
 {
 	"name": "@byojs/eventer",
-	"description": "Event emitter with async-emit and weak-listener support",
-	"version": "0.1.1",
+	"description": "Event emitter with optional async-emit and weak-listener support",
+	"version": "0.1.2",
 	"exports": {
 		"./": "./dist/eventer.mjs"
 	},
@@ -21,7 +21,7 @@
 	"devDependencies": {
 		"micromatch": "~4.0.8",
 		"recursive-readdir-sync": "~1.0.6",
-		"terser": "~5.31.6"
+		"terser": "~5.37.0"
 	},
 	"repository": {
 		"type": "git",
